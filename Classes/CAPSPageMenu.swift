@@ -21,18 +21,18 @@ import UIKit
 
 @objc public protocol CAPSPageMenuDelegate {
     // MARK: - Delegate functions
-
+    
     @objc optional func willMoveToPage(_ controller: UIViewController, index: Int)
     @objc optional func didMoveToPage(_ controller: UIViewController, index: Int)
 }
 
 open class CAPSPageMenu: UIViewController {
-
+    
     //MARK: - Configuration
     var configuration = CAPSPageMenuConfiguration()
     
     // MARK: - Properties
-
+    
     let menuScrollView = UIScrollView()
     let controllerScrollView = UIScrollView()
     var controllerArray : [UIViewController] = []
@@ -43,37 +43,37 @@ open class CAPSPageMenu: UIViewController {
     
     var startingMenuMargin : CGFloat = 0.0
     var menuItemMargin : CGFloat = 0.0
-
+    
     var selectionIndicatorView : UIView = UIView()
-
+    
     public var currentPageIndex : Int = 0
     var lastPageIndex : Int = 0
-
+    
     var currentOrientationIsPortrait : Bool = true
     var pageIndexForOrientationChange : Int = 0
     var didLayoutSubviewsAfterRotation : Bool = false
     var didScrollAlready : Bool = false
-
+    
     var lastControllerScrollViewContentOffset : CGFloat = 0.0
-
+    
     var lastScrollDirection : CAPSPageMenuScrollDirection = .other
     var startingPageForScroll : Int = 0
     var didTapMenuItemToScroll : Bool = false
-
+    
     var pagesAddedDictionary : [Int : Int] = [:]
-
+    
     open weak var delegate : CAPSPageMenuDelegate?
-
+    
     var tapTimer : Timer?
-
+    
     enum CAPSPageMenuScrollDirection : Int {
         case left
         case right
         case other
     }
-
+    
     // MARK: - View life cycle
-
+    
     /**
      Initialize PageMenu with view controllers
      
@@ -104,17 +104,17 @@ open class CAPSPageMenu: UIViewController {
     }
     
     /**
-    Initialize PageMenu with view controllers
-
-    - parameter viewControllers: List of view controllers that must be subclasses of UIViewController
-    - parameter frame: Frame for page menu view
-    - parameter configuration: A configuration instance for page menu
-    */
+     Initialize PageMenu with view controllers
+     
+     - parameter viewControllers: List of view controllers that must be subclasses of UIViewController
+     - parameter frame: Frame for page menu view
+     - parameter configuration: A configuration instance for page menu
+     */
     public init(viewControllers: [UIViewController], frame: CGRect, configuration: CAPSPageMenuConfiguration) {
         super.init(nibName: nil, bundle: nil)
         self.configuration = configuration
         controllerArray = viewControllers
-
+        
         self.view.frame = frame
         
         //Build UI
@@ -154,15 +154,57 @@ open class CAPSPageMenu: UIViewController {
             configureUserInterface()
         }
     }
-
+    
     required public init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)!
+    }
+    
+    public func setTitleLabel(index: Int, title: String) {
+        self.menuItems[index].titleLabel?.text = title
+    }
+    
+    public func setStartIndexToPage(index: Int) {
+        if index >= 0 && index < controllerArray.count {
+            // Update page if changed
+            if index != currentPageIndex {
+                startingPageForScroll = index
+                lastPageIndex = currentPageIndex
+                currentPageIndex = index
+                didTapMenuItemToScroll = true
+                
+                // Add pages in between current and tapped page if necessary
+                let smallerIndex : Int = lastPageIndex < currentPageIndex ? lastPageIndex : currentPageIndex
+                let largerIndex : Int = lastPageIndex > currentPageIndex ? lastPageIndex : currentPageIndex
+                
+                if smallerIndex + 1 != largerIndex {
+                    for i in (smallerIndex + 1)...(largerIndex - 1) {
+                        if pagesAddedDictionary[i] != i {
+                            addPageAtIndex(i)
+                            pagesAddedDictionary[i] = i
+                        }
+                    }
+                }
+                
+                addPageAtIndex(index)
+                
+                // Add page from which tap is initiated so it can be removed after tap is done
+                pagesAddedDictionary[lastPageIndex] = lastPageIndex
+            }
+            
+            // Move controller scroll view when tapping menu item
+            let duration: Double = 0
+            
+            UIView.animate(withDuration: duration, animations: { () -> Void in
+                let xOffset : CGFloat = CGFloat(index) * self.controllerScrollView.frame.width
+                self.controllerScrollView.setContentOffset(CGPoint(x: xOffset, y: self.controllerScrollView.contentOffset.y), animated: false)
+            })
+        }
     }
 }
 
 
 
-extension CAPSPageMenu {    
+extension CAPSPageMenu {
     // MARK: - Handle Selection Indicator
     func moveSelectionIndicator(_ pageIndex: Int) {
         if pageIndex >= 0 && pageIndex < controllerArray.count {
